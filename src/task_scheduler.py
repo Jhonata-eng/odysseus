@@ -1626,8 +1626,16 @@ class TaskScheduler:
             if event_str.startswith("data: ") and not event_str.startswith("data: [DONE]"):
                 try:
                     data = json.loads(event_str[6:])
-                    # Capture text from all event types, not just delta
+                    # Capture text from all event types, not just delta.
+                    # Skip thinking/reasoning deltas — they are internal
+                    # chain-of-thought, not user-facing output.  The agent
+                    # loop marks these with {"thinking": true}; including
+                    # them leaks raw reasoning into task results and
+                    # webhook/Telegram notifications.  (agent_loop.py
+                    # makes the same split for its own accumulators.)
                     if "delta" in data:
+                        if data.get("thinking"):
+                            continue
                         full_text += data["delta"]
                     elif data.get("type") == "tool_output":
                         # Tool results — capture summary so we have SOMETHING even
